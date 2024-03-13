@@ -11,28 +11,13 @@ const PORT = 3000;
 const MY_MORALIS_API_KEY = process.env.MORALIS_API_KEY;
 console.log("Moralis API Key Fetched");
 
+const ARBITRUM = 0xa4b1;
 const ETH = EvmChain.ETHEREUM;
-
-app.get("/status", (request, response) => {
-  const status = {
-    Status: "Running",
-  };
-
-  response.send(status);
-});
-
-app.get("/hoy", (request, response) => {
-  const status = {
-    IDK: "Ge",
-  };
-
-  response.send(status);
-});
 
 async function getAllBalance(walletAddress) {
   // Fetch Wallet Native Balance
   const walletNativeBalance = await Moralis.EvmApi.balance.getNativeBalance({
-    chain: ETH,
+    chain: ARBITRUM,
     address: walletAddress,
   });
   console.log("Native Balance Fetched in JSON", walletNativeBalance.raw);
@@ -40,17 +25,37 @@ async function getAllBalance(walletAddress) {
   const native = walletNativeBalance.result.balance.ether;
   console.log("Native Balance Fetched Formatted", native);
 
-//   const tokenBalance = await Moralis.EvmApi.token.getWalletTokenBalances({
-//     address,
-//     chain,
-//   });
-//   console.log("Token Balance Fetched in JSON", tokenBalance.raw);
+  // Fetch Available Token Balance
+  const tokenBalance = await Moralis.EvmApi.token.getWalletTokenBalances({
+    chain: ARBITRUM,
+    address: walletAddress,
+  });
+  console.log("Token Balance Fetched in JSON", tokenBalance.raw);
 
-//   const tokens = tokenBalance.result.map((token) => token.display());
-//   console.log("Tokens", tokens);
+  const tokens = tokenBalance.result.map((token) => token.display());
+  console.log("Tokens", tokens);
 
-  //   return { native, tokens };
-  return native;
+  return { native, tokens };
+}
+
+async function getNFTs(walletAddress) {
+  // Fetch Wallet NFTs
+  const nftsBalances = await Moralis.EvmApi.nft.getWalletNFTs({
+    chain: ARBITRUM,
+    format: "decimal",
+    mediaItems: false,
+    address: walletAddress,
+  });
+
+  // List NFTs
+  const nfts = nftsBalances.result.map((nft) => ({
+    name: nft.result.name,
+    amount: nft.result.amount,
+    metadata: nft.result.metadata,
+  }));
+  console.log(nfts.length,"NFTs Fetched");
+
+  return nfts;
 }
 
 app.get("/balance/:walletAddress", async (request, response) => {
@@ -60,6 +65,21 @@ app.get("/balance/:walletAddress", async (request, response) => {
     console.log("Wallet Address:", userWalletAddress);
 
     data = await getAllBalance(userWalletAddress);
+
+    response.send(data);
+  } catch (e) {
+    console.log("Balance Fetch Failed");
+    response.send(e);
+  }
+});
+
+app.get("/nft/:walletAddress", async (request, response) => {
+  try {
+    // Fetch Wallet Address
+    const userWalletAddress = request.params.walletAddress;
+    console.log("Wallet Address:", userWalletAddress);
+
+    data = await getNFTs(userWalletAddress);
 
     response.send(data);
   } catch (e) {
